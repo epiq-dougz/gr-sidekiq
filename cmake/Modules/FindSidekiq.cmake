@@ -80,8 +80,6 @@ if(NOT Sidekiq_FOUND)
     #    HINTS ${Sidekiq_PKG_LIBRARY_DIRS} $ENV{Sidekiq_DIR}/include
     #    PATHS ~/sidekiq_sw)
 
-    set(Sidekiq_LIBRARIES ${Sidekiq_LIBRARY})
-    set(Sidekiq_INCLUDE_DIRS ${Sidekiq_INCLUDE_DIR})
     set(Sidekiq_PKG_LIBRARY_DIRS "~/sidekiq_sdk_current/lib/support/${SUFFIX}/usr/lib/epiq")
     set(ENV{Sidekiq_DIR} "~/sidekiq_sdk_current")
 
@@ -128,7 +126,7 @@ if(NOT Sidekiq_FOUND)
         message(STATUS "PKG_CONFIG_PATH $ENV{PKG_CONFIG_PATH}")
 
         execute_process(
-            COMMAND pkg-config --libs-only-l grpc++ protobuf
+            COMMAND pkg-config --libs grpc++ protobuf
             OUTPUT_VARIABLE PKG_LIBS
             OUTPUT_STRIP_TRAILING_WHITESPACE
         )
@@ -138,15 +136,6 @@ if(NOT Sidekiq_FOUND)
 
         set (PKGCONFIG_LIBS ${PKG_LIBS_LIST} -lgpiod -lstdc++)
         message(STATUS "PKGCONFIG ${PKGCONFIG_LIBS}")
-
-        execute_process(
-            COMMAND pkg-config --variable=libdir protobuf
-            OUTPUT_VARIABLE LIB_PATH
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-        )
-
-        message(STATUS "LIB_PATH ${LIB_PATH}")
-        link_directories(${LIB_PATH})
 
         include(FindPackageHandleStandardArgs)
         # handle the QUIETLY and REQUIRED arguments and set LibSidekiq_FOUND to TRUE
@@ -170,4 +159,17 @@ if(NOT Sidekiq_FOUND)
         mark_as_advanced(Sidekiq_INCLUDE_DIRS Sidekiq_LIBRARIES OTHER_LIBS PKGCONFIG_LIBS) 
     endif()
 
+    if(Sidekiq_FOUND AND NOT TARGET Sidekiq::sidekiq)
+        add_library(Sidekiq::sidekiq STATIC IMPORTED)
+        set_target_properties(Sidekiq::sidekiq PROPERTIES
+          IMPORTED_LOCATION "${Sidekiq_LIBRARY}"
+          INTERFACE_INCLUDE_DIRECTORIES "${Sidekiq_INCLUDE_DIR}"
+        )
+        target_link_libraries(Sidekiq::sidekiq INTERFACE
+          ${PKGCONFIG_LIBS}
+          ${OTHER_LIBS}
+        )
+    endif()
+    set(Sidekiq_LIBRARIES Sidekiq::sidekiq)
+    set(Sidekiq_INCLUDE_DIRS "${Sidekiq_INCLUDE_DIR}")
 endif(NOT Sidekiq_FOUND)
