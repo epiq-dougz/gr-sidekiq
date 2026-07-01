@@ -14,7 +14,7 @@
 /* BINDTOOL_GEN_AUTOMATIC(0)                                                       */
 /* BINDTOOL_USE_PYGCCXML(0)                                                        */
 /* BINDTOOL_HEADER_FILE(sidekiq_rx.h)                                        */
-/* BINDTOOL_HEADER_FILE_HASH(c82ab397b04e68a633a84776a624894e)                     */
+/* BINDTOOL_HEADER_FILE_HASH(2bfcb365b78e83442c903ebe604006e5)                     */
 /***********************************************************************************/
 
 #include <pybind11/complex.h>
@@ -38,6 +38,7 @@ void bind_sidekiq_rx(py::module& m)
 
         .def(py::init(&sidekiq_rx::make),
            py::arg("input_card"),
+           py::arg("input_topology"),
            py::arg("port1_handle"),
            py::arg("port2_handle"),
            py::arg("sample_rate"),
@@ -118,7 +119,6 @@ void bind_sidekiq_rx(py::module& m)
 
 
 }
-
 
 
 

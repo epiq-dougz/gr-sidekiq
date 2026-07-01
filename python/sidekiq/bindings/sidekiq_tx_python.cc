@@ -14,7 +14,7 @@
 /* BINDTOOL_GEN_AUTOMATIC(0)                                                       */
 /* BINDTOOL_USE_PYGCCXML(0)                                                        */
 /* BINDTOOL_HEADER_FILE(sidekiq_tx.h)                                        */
-/* BINDTOOL_HEADER_FILE_HASH(ccaa9bc778fd68f62ae93e8606eca355)                     */
+/* BINDTOOL_HEADER_FILE_HASH(641a99c523a13bea23a072b0900c570e)                     */
 /***********************************************************************************/
 
 #include <pybind11/complex.h>
@@ -38,6 +38,7 @@ void bind_sidekiq_tx(py::module& m)
 
         .def(py::init(&sidekiq_tx::make),
            py::arg("card"),
+           py::arg("topology"),
            py::arg("handle"),
            py::arg("sample_rate"),
            py::arg("bandwidth"),
