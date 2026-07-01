@@ -44,7 +44,8 @@ class sidekiq_tx_impl : public sidekiq_tx
 {
 public:
     sidekiq_tx_impl(
-                    int card, 
+                    int card,
+                    int topology,
                     int handle,
                     double sample_rate,
                     double bandwidth,

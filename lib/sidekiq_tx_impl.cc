@@ -67,6 +67,7 @@ using input_type = float;
 
 /* This is the top level class instantiated by gnuradio */
 sidekiq_tx::sptr sidekiq_tx::make(int card,
+                                  int topology,
                                   int handle,
                                   double sample_rate,
                                   double bandwidth,
@@ -79,7 +80,8 @@ sidekiq_tx::sptr sidekiq_tx::make(int card,
 {
     /* then make instantiates the tx_block */
     return gnuradio::make_block_sptr<sidekiq_tx_impl>(
-                                  card, 
+                                  card,
+                                  topology,
                                   handle,
                                   sample_rate,
                                   bandwidth,
@@ -96,6 +98,7 @@ sidekiq_tx::sptr sidekiq_tx::make(int card,
  * Initialize the card
  */
 sidekiq_tx_impl::sidekiq_tx_impl( int input_card,
+                                  int topology,
                                   int handle,
                                   double sample_rate,
                                   double bandwidth,
@@ -158,6 +161,26 @@ sidekiq_tx_impl::sidekiq_tx_impl( int input_card,
         libsidekiq_init = true;
         d_logger->info("Info: libsidkiq initialized successfully");
 
+    }
+
+    /* set topology if it has changed from default (0) */
+    if (topology != 0)
+    {
+        if (skiq_is_topology_supported(card))
+        {
+            status = skiq_apply_topology(card, topology);
+            if (status != 0)
+            {
+                d_logger->error( "Error: unable to configure topology %d with status {}",
+                                 topology, status);
+                throw std::runtime_error("Failure: skiq_apply_topology");
+            }
+            d_logger->info("Info: Set topology to {}\n", topology);
+        }
+        else
+        {
+            d_logger->info("Info: Topology is not supported. Ignoring requested topology\n");
+        }
     }
 
     if (tx_second == false)
