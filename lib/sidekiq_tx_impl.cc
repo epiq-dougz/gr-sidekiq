@@ -431,14 +431,52 @@ bool sidekiq_tx_impl::stop()
  */
 void sidekiq_tx_impl::set_tx_sample_rate(double value) 
 {
-
+    double current_rate;
+    uint32_t configured_rate, configured_bw, current_bw;
+    auto new_rate = static_cast<uint32_t>(value);
+    skiq_param_t params;
+    int param_idx = -1;
     int status = 0;
     d_logger->debug("in set_tx_sample_rate() ");
 
-    auto rate = static_cast<uint32_t>(value);
-    auto bw = static_cast<uint32_t>(this->bandwidth);
+    status = skiq_read_parameters(card, &params);
+    if (status != 0)
+    {
+        d_logger->error( "Error: could not read parameters, status {}, {}",
+                status, strerror(abs(status)) );
+        throw std::runtime_error("Failure: set samplerate");
+    }
 
-    status = skiq_write_tx_sample_rate_and_bandwidth(card, hdl, rate, bw); 
+    try
+    {
+        param_idx = find_tx_param_index(params, hdl);
+    }
+    catch (const std::exception& ex)
+    {
+        d_logger->error("Error: {}", ex.what());
+        throw std::runtime_error("Failure: set samplerate");
+    }
+
+    if ((new_rate < params.tx_param[param_idx].sample_rate_min) ||
+        (new_rate > params.tx_param[param_idx].sample_rate_max))
+    {
+        d_logger->error( "Error: Invalid sample rate requested: {}  Must be {} - {} Hz",
+                         new_rate, params.tx_param[param_idx].sample_rate_min,
+			 params.tx_param[param_idx].sample_rate_max);
+        throw std::runtime_error("Failure: set samplerate");
+    }
+
+    status = skiq_read_tx_sample_rate_and_bandwidth(card, hdl,
+		                                    &configured_rate, &current_rate,
+						    &configured_bw, &current_bw);
+    if (status != 0)
+    {
+        d_logger->error( "Error: could not read sr/bw on hdl, status {}, {}",
+                status, strerror(abs(status)) );
+        throw std::runtime_error("Failure: set samplerate");
+    }
+
+    status = skiq_write_tx_sample_rate_and_bandwidth(card, hdl, new_rate, current_bw); 
     if (status != 0) 
     {
         d_logger->error( "Error: could not set sample_rate, status {}, {}", 
@@ -446,10 +484,18 @@ void sidekiq_tx_impl::set_tx_sample_rate(double value)
         throw std::runtime_error("Failure: set samplerate");
     }
 
-    this->sample_rate = rate;
-    this->bandwidth = bw;
+    status = skiq_read_tx_sample_rate_and_bandwidth(card, hdl,
+		                                    &configured_rate, &current_rate,
+						    &configured_bw, &current_bw);
+    if (status != 0)
+    {
+        d_logger->error( "Error: could not read sr/bw on hdl, status {}, {}",
+                status, strerror(abs(status)) );
+        throw std::runtime_error("Failure: set samplerate");
+    }
 
-
+    this->sample_rate = current_rate;
+    this->bandwidth = current_bw;
 }
   
 /* set the bandwidth
@@ -458,23 +504,44 @@ void sidekiq_tx_impl::set_tx_sample_rate(double value)
 void sidekiq_tx_impl::set_tx_bandwidth(double value) 
 {
     int status = 0;
+    double current_rate;
+    uint32_t configured_rate, configured_bw, current_bw;
+    auto new_bw = static_cast<uint32_t>(value);
+
     d_logger->debug("in set_tx_bandwidth() ");
 
-    auto rate = static_cast<uint32_t>(this->sample_rate);
-    auto bw = static_cast<uint32_t>(value);
-
-    status = skiq_write_tx_sample_rate_and_bandwidth(card, hdl, rate, bw); 
-    if (status != 0) 
+    status = skiq_read_tx_sample_rate_and_bandwidth(card, hdl,
+		                                    &configured_rate, &current_rate,
+						    &configured_bw, &current_bw);
+    if (status != 0)
     {
-        d_logger->error("Error: could not set bandwidth {}, status {}, {}", 
-                bw, status, strerror(abs(status)) );
+        d_logger->error( "Error: could not read sr/bw on hdl, status {}, {}",
+                status, strerror(abs(status)) );
         throw std::runtime_error("Failure: set samplerate");
+    }
+
+    status = skiq_write_tx_sample_rate_and_bandwidth(card, hdl, static_cast<uint32_t>(current_rate), new_bw);
+    if (status != 0)
+    {
+        d_logger->error("Error: could not set bandwidth {} on hdl, status {}, {}",
+                new_bw, status, strerror(abs(status)) );
+        throw std::runtime_error("Failure: set bandwidth");
         return;
     }
 
-    this->sample_rate = rate;
-    this->bandwidth = bw;
+    status = skiq_read_tx_sample_rate_and_bandwidth(card, hdl,
+		                                    &configured_rate, &current_rate,
+						    &configured_bw, &current_bw);
+    if (status != 0)
+    {
+        d_logger->error( "Error: could not read sr/bw on hdl, status {}, {}",
+                status, strerror(abs(status)) );
+        throw std::runtime_error("Failure: set samplerate");
+    }
+    d_logger->info("Info: bandwidth set to {}", new_bw);
 
+    this->sample_rate = static_cast<uint32_t>(current_rate);
+    this->bandwidth = current_bw;
 }
 
 /* set the LO frequency
