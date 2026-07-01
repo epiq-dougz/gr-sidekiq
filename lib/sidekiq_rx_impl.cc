@@ -25,6 +25,7 @@ namespace sidekiq {
 using output_type = float;
 sidekiq_rx::sptr sidekiq_rx::make(
         int input_card,
+        int input_topology,
         int port1_handle,
         int port2_handle,
         double sample_rate,
@@ -40,6 +41,7 @@ sidekiq_rx::sptr sidekiq_rx::make(
 {
   return gnuradio::make_block_sptr<sidekiq_rx_impl>(
           input_card,
+          input_topology,
           port1_handle,
           port2_handle,
           sample_rate,
@@ -56,6 +58,7 @@ sidekiq_rx::sptr sidekiq_rx::make(
 
 sidekiq_rx_impl::sidekiq_rx_impl(
         int input_card,
+        int input_topology,
         int port1_handle,
         int port2_handle,
         double sample_rate,
@@ -167,6 +170,26 @@ sidekiq_rx_impl::sidekiq_rx_impl(
     {
         libsidekiq_init = true;
         d_logger->info("Info: libsidkiq initialized successfully");
+    }
+
+    /* set topology if it has changed from default (0) */
+    if (input_topology != 0)
+    {
+        if (skiq_is_topology_supported(card))
+        {
+            status = skiq_apply_topology(card, input_topology);
+            if (status != 0)
+            {
+                d_logger->error( "Error: unable to configure topology %d with status {}",
+                                 input_topology, status);
+                throw std::runtime_error("Failure: skiq_apply_topology");
+            }
+            d_logger->info("Info: Set topology to {}\n", input_topology);
+        }
+        else
+        {
+            d_logger->info("Info: Topology is not supported. Ignoring requested topology\n");
+        }
     }
 
     set_rx_sample_rate(sample_rate);
