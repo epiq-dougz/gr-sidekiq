@@ -444,36 +444,80 @@ bool sidekiq_rx_impl::stop()
  */
 void sidekiq_rx_impl::set_rx_sample_rate(double value) 
 {
-
+    double fpga_rate;
+    uint32_t actual_rate, actual_bw, fpga_bw;
+    auto new_rate = static_cast<uint32_t>(value);
+    skiq_param_t params;
     int status = 0;
+
     d_logger->debug("in set_rx_sample_rate");
 
-    auto rate = static_cast<uint32_t>(value);
-    auto bw = static_cast<uint32_t>(this->bandwidth);
-
-    status = skiq_write_rx_sample_rate_and_bandwidth(card, hdl1, rate, bw); 
-    if (status != 0) 
+    status = skiq_read_parameters(card, &params);
+    if (status != 0)
     {
-        d_logger->error( "Error: could not set sample_rate on hdl1, status {}, {}", 
+        d_logger->error( "Error: could not read parameters, status {}, {}",
+                status, strerror(abs(status)) );
+        throw std::runtime_error("Failure: set samplerate");
+    }
+
+    if ((new_rate < params.rx_param[hdl1].sample_rate_min) ||
+        (new_rate > params.rx_param[hdl1].sample_rate_max))
+    {
+        d_logger->error( "Error: Invalid sample rate requested: {}  Must be {} - {} Hz",
+                         new_rate, params.rx_param[hdl1].sample_rate_min,
+			 params.rx_param[hdl1].sample_rate_max);
+        throw std::runtime_error("Failure: set samplerate");
+    }
+
+    status = skiq_read_rx_sample_rate_and_bandwidth(card, hdl1,
+		                                    &actual_rate, &fpga_rate,
+						    &actual_bw, &fpga_bw);
+    if (status != 0)
+    {
+        d_logger->error( "Error: could not read sr/bw on hdl1, status {}, {}",
+                status, strerror(abs(status)) );
+        throw std::runtime_error("Failure: set samplerate");
+    }
+
+    status = skiq_write_rx_sample_rate_and_bandwidth(card, hdl1, new_rate, actual_bw);
+    if (status != 0)
+    {
+        d_logger->error( "Error: could not set sample_rate on hdl1, status {}, {}",
                 status, strerror(abs(status)) );
         throw std::runtime_error("Failure: set samplerate");
     }
 
     if (dual_port)
     {
-        status = skiq_write_rx_sample_rate_and_bandwidth(card, hdl2, rate, bw); 
-        if (status != 0) 
+        status = skiq_write_rx_sample_rate_and_bandwidth(card, hdl2, new_rate, actual_bw);
+        if (status != 0)
         {
-            d_logger->error( "Error: could not set sample_rate on hdl2, status {}, {}", 
+            d_logger->error( "Error: could not set sample_rate on hdl2, status {}, {}",
                     status, strerror(abs(status)) );
             throw std::runtime_error("Failure: set samplerate");
         }
     }
-    d_logger->info("Info: sample_rate set to {}", rate);
+    status = skiq_read_rx_sample_rate_and_bandwidth(card, hdl1,
+		                                    &actual_rate, &fpga_rate,
+						    &actual_bw, &fpga_bw);
+    if (status != 0)
+    {
+        d_logger->error( "Error: could not read sr/bw on hdl1, status {}, {}",
+                status, strerror(abs(status)) );
+        throw std::runtime_error("Failure: set samplerate");
+    }
 
-    this->sample_rate = rate;
-    this->bandwidth = bw;
+    if (new_rate == actual_rate)
+    {
+        d_logger->info("Info: sample rate set to {}", actual_rate);
+    }
+    else
+    {
+        d_logger->info("Warning: Requested sample rate {} but actually set to {}", new_rate, actual_rate);
+    }
 
+    this->sample_rate = actual_rate;
+    this->bandwidth = actual_bw;
 }
   
 /* 
@@ -485,36 +529,64 @@ void sidekiq_rx_impl::set_rx_sample_rate(double value)
 void sidekiq_rx_impl::set_rx_bandwidth(double value) 
 {
     int status = 0;
+    double fpga_rate;
+    uint32_t actual_rate, actual_bw, fpga_bw;
+    auto new_bw = static_cast<uint32_t>(value);
+
     d_logger->debug("in set_rx_bandwidth");
 
-    auto rate = static_cast<uint32_t>(this->sample_rate);
-    auto bw = static_cast<uint32_t>(value);
 
-    status = skiq_write_rx_sample_rate_and_bandwidth(card, hdl1, rate, bw); 
-    if (status != 0) 
+    status = skiq_read_rx_sample_rate_and_bandwidth(card, hdl1,
+		                                    &actual_rate, &fpga_rate,
+						    &actual_bw, &fpga_bw);
+    if (status != 0)
     {
-        d_logger->error("Error: could not set bandwidth {} on hdl1, status {}, {}", 
-                bw, status, strerror(abs(status)) );
+        d_logger->error( "Error: could not read sr/bw on hdl1, status {}, {}",
+                status, strerror(abs(status)) );
+        throw std::runtime_error("Failure: set samplerate");
+    }
+
+    status = skiq_write_rx_sample_rate_and_bandwidth(card, hdl1, actual_rate, new_bw);
+    if (status != 0)
+    {
+        d_logger->error("Error: could not set bandwidth {} on hdl1, status {}, {}",
+                new_bw, status, strerror(abs(status)) );
         throw std::runtime_error("Failure: set bandwidth");
         return;
     }
 
     if (dual_port)
     {
-        status = skiq_write_rx_sample_rate_and_bandwidth(card, hdl2, rate, bw); 
-        if (status != 0) 
+        status = skiq_write_rx_sample_rate_and_bandwidth(card, hdl2, actual_rate, new_bw);
+        if (status != 0)
         {
-            d_logger->error("Error: could not set bandwidth {} on hdl2, status {}, {}", 
-                    bw, status, strerror(abs(status)) );
+            d_logger->error("Error: could not set bandwidth {} on hdl2, status {}, {}",
+                    new_bw, status, strerror(abs(status)) );
             throw std::runtime_error("Failure: set bandwidth");
             return;
         }
     }
-    d_logger->info("Info: bandwidth set to {}", bw);
 
-    this->sample_rate = rate;
-    this->bandwidth = bw;
+    status = skiq_read_rx_sample_rate_and_bandwidth(card, hdl1,
+		                                    &actual_rate, &fpga_rate,
+						    &actual_bw, &fpga_bw);
+    if (status != 0)
+    {
+        d_logger->error( "Error: could not read sr/bw on hdl1, status {}, {}",
+                status, strerror(abs(status)) );
+        throw std::runtime_error("Failure: set samplerate");
+    }
+    if (new_bw == actual_bw)
+    {
+        d_logger->info("Info: bandwidth set to {}", actual_bw);
+    }
+    else
+    {
+        d_logger->info("Warning: Requested bandwidth {} but actually set to {}", new_bw, actual_bw);
+    }
 
+    this->sample_rate = actual_rate;
+    this->bandwidth = actual_bw;
 }
 
 /* 
