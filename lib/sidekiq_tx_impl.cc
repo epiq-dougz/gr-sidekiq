@@ -146,6 +146,7 @@ sidekiq_tx_impl::sidekiq_tx_impl( int input_card,
     printf("in TX constructor, debug level:%s\n", str.c_str());
     
     int status = 0;
+    skiq_param_t param;
     uint8_t iq_resolution = 0;
     status_update_rate_in_samples = static_cast<size_t >(sample_rate * STATUS_UPDATE_RATE_SECONDS);
 
@@ -153,7 +154,6 @@ sidekiq_tx_impl::sidekiq_tx_impl( int input_card,
     hdl = (skiq_tx_hdl_t)handle;
     curr_block = 0;
     tx_buffer_size = buffer_size;
-    temp_buffer.resize(tx_buffer_size);
     num_blocks = NUM_BLOCKS;
 
     burst_tag_name = burst_tag;
@@ -188,6 +188,14 @@ sidekiq_tx_impl::sidekiq_tx_impl( int input_card,
         d_logger->info("Info: libsidkiq initialized successfully");
 
     }
+
+    status = skiq_read_parameters(card, &param);
+    if (status != 0)
+    {
+        d_logger->error( "Error: unable to read card parameters with status {}", status);
+        throw std::runtime_error("Failure: skiq_read_parameters");
+    }
+    card_part = param.card_param.part_type;
 
     /* set topology if it has changed from default (0) */
     if (topology != 0)
@@ -232,34 +240,47 @@ sidekiq_tx_impl::sidekiq_tx_impl( int input_card,
         throw std::runtime_error("Failure: skiq_write_tx_flow_mode");
     }
 
-    /* if A2 or B2 is used, we need to set the channel mode to dual */
-    if (hdl == skiq_tx_hdl_A2 || hdl == skiq_tx_hdl_B2) 
+    if ( !skiq_is_topology_supported(card) ||
+         card_part == skiq_nv100 || card_part == skiq_nvm2)
     {
-        status = skiq_write_chan_mode(card, skiq_chan_mode_dual);
-        if (status != 0) 
+        /* if A2 or B2 is used, we need to set the channel mode to dual */
+        if (hdl == skiq_tx_hdl_A2 || hdl == skiq_tx_hdl_B2)
         {
-            d_logger->error( "Error: unable to configure TX channel mode with status {}", status);
-            throw std::runtime_error("Failure: skiq_write_chan_mode");
+            status = skiq_write_chan_mode(card, skiq_chan_mode_dual);
+            if (status != 0)
+            {
+                d_logger->error( "Error: unable to configure TX channel mode with status {}", status);
+                throw std::runtime_error("Failure: skiq_write_chan_mode");
+            }
+
+	    /*
+	     * Buffer size was assumed to be single channel (2^n - 4).
+	     * For dual channel, only half the header size (4) applies to each channel
+	     */
+            tx_buffer_size += 2;
         }
-    } 
-    else {
-        status = skiq_write_chan_mode(card, skiq_chan_mode_single);
-        if (status != 0) 
-        {
-            d_logger->error( "Error: unable to configure TX channel mode with status {}", status);
-            throw std::runtime_error("Failure: skiq_write_chan_mode");
+        else {
+            status = skiq_write_chan_mode(card, skiq_chan_mode_single);
+            if (status != 0)
+            {
+                d_logger->error( "Error: unable to configure TX channel mode with status {}", status);
+                throw std::runtime_error("Failure: skiq_write_chan_mode");
+            }
         }
     }
 
     /* write the block size to the passed in amount */
     status = skiq_write_tx_block_size(card, hdl, tx_buffer_size);
-    if (status != 0) 
+    if (status != 0)
     {
         d_logger->error( "Error: unable to configure TX block size: {} with status {}", 
                 tx_buffer_size, status);
         throw std::runtime_error("Failure: skiq_write_tx_block_size");
     }
     d_logger->info("Info: TX block size {}", tx_buffer_size);
+
+    /* Set conversion vector buffer size */
+    temp_buffer.resize(tx_buffer_size);
 
     /* handle sync vs async mode */
     if (threads > 1)

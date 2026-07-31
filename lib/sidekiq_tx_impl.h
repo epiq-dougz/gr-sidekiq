@@ -112,6 +112,9 @@ private:
     bool tx_streaming{};
     bool tx_second{};
 
+    /* config */
+    skiq_part_t card_part{};
+
     /* sync/async parameters */
     bool in_async_mode{};
     skiq_tx_block_t **p_tx_blocks{};
