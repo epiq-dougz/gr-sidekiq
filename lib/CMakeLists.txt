@@ -23,7 +23,10 @@ find_package(Sidekiq)
 
 
 if (NOT Sidekiq_FOUND)
-    message(FATAL_ERROR "Sidekiq development files not found...")
+    message(FATAL_ERROR
+        "Sidekiq SDK v4.26 or later not found.  "
+        "Location can be specified with:"
+        "  -DSIDEKIQ_SDK_DIR=/path/to/sidekiq_sdk_current")
 endif ()
 
 message(STATUS "Sidekiq_INCLUDE_DIRS - ${Sidekiq_INCLUDE_DIRS}")
