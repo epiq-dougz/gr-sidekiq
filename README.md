@@ -18,6 +18,24 @@ The build locates the Sidekiq SDK in this order:
 If you are using the Python bindings or GNU Radio Companion blocks, build in an
 environment where the GNU Radio Python components are available.
 
+## Setup
+Check the version of gnuradio available in your distro:
+```bash
+ apt-cache policy gnuradio
+```
+
+If it's not 3.10 or later, then add a PPA to get the latest version:
+```bash
+sudo apt update && sudo apt install -y software-properties-common
+sudo add-apt-repository ppa:gnuradio/gnuradio-releases
+sudo apt update
+```
+
+Install build tools and gnuradio:
+```bash
+sudo apt install build-essential cmake gnuradio
+```
+
 ## Build And Install
 
 From the repository root:
