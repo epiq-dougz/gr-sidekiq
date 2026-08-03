@@ -36,7 +36,20 @@ void bind_sidekiq_rx(py::module& m)
     py::class_<sidekiq_rx, gr::sync_block, gr::block, gr::basic_block,
         std::shared_ptr<sidekiq_rx>>(m, "sidekiq_rx", D(sidekiq_rx))
 
-        .def(py::init(&sidekiq_rx::make),
+        .def(py::init(py::overload_cast<int,
+                                        int,
+                                        int,
+                                        int,
+                                        double,
+                                        double,
+                                        double,
+                                        uint8_t,
+                                        int,
+                                        int,
+                                        int,
+                                        int,
+                                        int,
+                                        int>(&sidekiq_rx::make)),
            py::arg("input_card"),
            py::arg("input_topology"),
            py::arg("port1_handle"),
@@ -148,7 +161,6 @@ void bind_sidekiq_rx(py::module& m)
 
 
 }
-
 
 
 

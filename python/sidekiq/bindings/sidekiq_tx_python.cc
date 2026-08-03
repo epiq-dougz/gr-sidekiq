@@ -36,7 +36,17 @@ void bind_sidekiq_tx(py::module& m)
     py::class_<sidekiq_tx, gr::sync_block, gr::block, gr::basic_block,
         std::shared_ptr<sidekiq_tx>>(m, "sidekiq_tx", D(sidekiq_tx))
 
-        .def(py::init(&sidekiq_tx::make),
+        .def(py::init(py::overload_cast<int,
+                                        int,
+                                        int,
+                                        double,
+                                        double,
+                                        double,
+                                        double,
+                                        std::string,
+                                        int,
+                                        int,
+                                        int>(&sidekiq_tx::make)),
            py::arg("card"),
            py::arg("topology"),
            py::arg("handle"),
@@ -125,7 +135,6 @@ void bind_sidekiq_tx(py::module& m)
 
 
 }
-
 
 
 
