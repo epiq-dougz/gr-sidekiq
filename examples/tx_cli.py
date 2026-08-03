@@ -6,7 +6,7 @@
 
 import signal
 import threading
-from argparse import ArgumentParser
+from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 
 from gnuradio import analog
 from gnuradio import gr
@@ -43,42 +43,35 @@ class tx_tone_cli(gr.top_block):
         )
         self.analog_sig_source_x_0.set_min_output_buffer(min_output_buffer)
 
-        try:
-            self.sidekiq_sidekiq_tx_0 = sidekiq.sidekiq_tx(
-                card,
-                topology,
-                handle,
-                sample_rate,
-                bandwidth,
-                frequency,
-                attenuation,
-                burst_tag,
-                threads,
-                buffer_size,
-                cal_mode,
-            )
-        except TypeError:
-            self.sidekiq_sidekiq_tx_0 = sidekiq.sidekiq_tx(
-                card,
-                handle,
-                sample_rate,
-                bandwidth,
-                frequency,
-                attenuation,
-                burst_tag,
-                threads,
-                buffer_size,
-                cal_mode,
-            )
+        self.sidekiq_sidekiq_tx_0 = sidekiq.sidekiq_tx(
+            card,
+            topology,
+            handle,
+            sample_rate,
+            bandwidth,
+            frequency,
+            attenuation,
+            burst_tag,
+            threads,
+            buffer_size,
+            cal_mode,
+        )
 
         self.connect((self.analog_sig_source_x_0, 0), (self.sidekiq_sidekiq_tx_0, 0))
 
 
 def build_arg_parser():
-    parser = ArgumentParser(description="Transmit a tone with the Sidekiq TX block.")
+    parser = ArgumentParser(
+        description="Transmit a tone with the Sidekiq TX block.",
+        formatter_class=ArgumentDefaultsHelpFormatter,
+    )
     parser.add_argument("--card", type=intx, default=0, help="Sidekiq card index")
     parser.add_argument("--topology", type=intx, default=0, help="Sidekiq topology index")
-    parser.add_argument("--handle", type=intx, default=0, help="Sidekiq TX handle/port")
+    parser.add_argument(
+        "--handle",
+        default="TxA1",
+        help="Sidekiq TX handle/port; accepts 0-3, TxA1, TxB2, A1, B2",
+    )
     parser.add_argument(
         "--sample-rate",
         type=eng_float,

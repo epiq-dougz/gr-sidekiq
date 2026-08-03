@@ -10,6 +10,7 @@
 #include <boost/foreach.hpp>
 #include <pthread.h>
 
+#include "sidekiq_handle_utils.h"
 #include "sidekiq_tx_impl.h"
 
 
@@ -91,6 +92,31 @@ sidekiq_tx::sptr sidekiq_tx::make(int card,
                                   threads,
                                   buffer_size,
                                   cal_mode);
+}
+
+sidekiq_tx::sptr sidekiq_tx::make(int card,
+                                  int topology,
+                                  const std::string& handle,
+                                  double sample_rate,
+                                  double bandwidth,
+                                  double frequency,
+                                  double attenuation,
+                                  std::string burst_tag,
+                                  int threads,
+                                  int buffer_size,
+                                  int cal_mode)
+{
+    return sidekiq_tx::make(card,
+                            topology,
+                            static_cast<int>(parse_tx_handle(handle)),
+                            sample_rate,
+                            bandwidth,
+                            frequency,
+                            attenuation,
+                            burst_tag,
+                            threads,
+                            buffer_size,
+                            cal_mode);
 }
 
 
@@ -458,6 +484,7 @@ void sidekiq_tx_impl::set_tx_sample_rate(double value)
     uint32_t configured_rate, configured_bw, current_bw;
     auto new_rate = static_cast<uint32_t>(value);
     skiq_param_t params;
+    int param_idx = -1;
     int status = 0;
     d_logger->debug("in set_tx_sample_rate() ");
 
@@ -469,12 +496,22 @@ void sidekiq_tx_impl::set_tx_sample_rate(double value)
         throw std::runtime_error("Failure: set samplerate");
     }
 
-    if ((new_rate < params.tx_param[hdl].sample_rate_min) ||
-        (new_rate > params.tx_param[hdl].sample_rate_max))
+    try
+    {
+        param_idx = find_tx_param_index(params, hdl);
+    }
+    catch (const std::exception& ex)
+    {
+        d_logger->error("Error: {}", ex.what());
+        throw std::runtime_error("Failure: set samplerate");
+    }
+
+    if ((new_rate < params.tx_param[param_idx].sample_rate_min) ||
+        (new_rate > params.tx_param[param_idx].sample_rate_max))
     {
         d_logger->error( "Error: Invalid sample rate requested: {}  Must be {} - {} Hz",
-                         new_rate, params.tx_param[hdl].sample_rate_min,
-			 params.tx_param[hdl].sample_rate_max);
+                         new_rate, params.tx_param[param_idx].sample_rate_min,
+			 params.tx_param[param_idx].sample_rate_max);
         throw std::runtime_error("Failure: set samplerate");
     }
 

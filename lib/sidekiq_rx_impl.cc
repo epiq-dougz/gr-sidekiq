@@ -6,6 +6,7 @@
  */
 
 
+#include "sidekiq_handle_utils.h"
 #include "sidekiq_rx_impl.h"
 #include <gnuradio/io_signature.h>
 #include <volk/volk.h>
@@ -44,6 +45,39 @@ sidekiq_rx::sptr sidekiq_rx::make(
           input_topology,
           port1_handle,
           port2_handle,
+          sample_rate,
+          bandwidth,
+          frequency,
+          gain_mode,
+          gain_index,
+          timestamp_tags,
+          trigger_src,
+          pps_source,
+          cal_mode,
+          cal_type);
+}
+
+sidekiq_rx::sptr sidekiq_rx::make(
+        int input_card,
+        int input_topology,
+        const std::string& port1_handle,
+        const std::string& port2_handle,
+        double sample_rate,
+        double bandwidth,
+        double frequency,
+        uint8_t gain_mode,
+        int gain_index,
+        int timestamp_tags,
+        int trigger_src,
+        int pps_source,
+        int cal_mode,
+        int cal_type)
+{
+  return sidekiq_rx::make(
+          input_card,
+          input_topology,
+          static_cast<int>(parse_rx_handle(port1_handle)),
+          static_cast<int>(parse_rx_handle(port2_handle, true)),
           sample_rate,
           bandwidth,
           frequency,
@@ -471,6 +505,7 @@ void sidekiq_rx_impl::set_rx_sample_rate(double value)
     uint32_t actual_rate, actual_bw, fpga_bw;
     auto new_rate = static_cast<uint32_t>(value);
     skiq_param_t params;
+    int param_idx = -1;
     int status = 0;
 
     d_logger->debug("in set_rx_sample_rate");
@@ -483,12 +518,22 @@ void sidekiq_rx_impl::set_rx_sample_rate(double value)
         throw std::runtime_error("Failure: set samplerate");
     }
 
-    if ((new_rate < params.rx_param[hdl1].sample_rate_min) ||
-        (new_rate > params.rx_param[hdl1].sample_rate_max))
+    try
+    {
+        param_idx = find_rx_param_index(params, hdl1);
+    }
+    catch (const std::exception& ex)
+    {
+        d_logger->error("Error: {}", ex.what());
+        throw std::runtime_error("Failure: set samplerate");
+    }
+
+    if ((new_rate < params.rx_param[param_idx].sample_rate_min) ||
+        (new_rate > params.rx_param[param_idx].sample_rate_max))
     {
         d_logger->error( "Error: Invalid sample rate requested: {}  Must be {} - {} Hz",
-                         new_rate, params.rx_param[hdl1].sample_rate_min,
-			 params.rx_param[hdl1].sample_rate_max);
+                         new_rate, params.rx_param[param_idx].sample_rate_min,
+			 params.rx_param[param_idx].sample_rate_max);
         throw std::runtime_error("Failure: set samplerate");
     }
 
