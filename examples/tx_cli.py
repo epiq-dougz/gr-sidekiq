@@ -110,7 +110,7 @@ def build_arg_parser():
     parser.add_argument(
         "--threads",
         type=intx,
-        default=4,
+        default=1,
         help="TX worker thread count; values > 1 use async mode",
     )
     parser.add_argument(
