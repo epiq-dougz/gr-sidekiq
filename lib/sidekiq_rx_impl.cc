@@ -6,6 +6,7 @@
  */
 
 
+#include "sidekiq_handle_utils.h"
 #include "sidekiq_rx_impl.h"
 #include <gnuradio/io_signature.h>
 #include <volk/volk.h>
@@ -44,6 +45,39 @@ sidekiq_rx::sptr sidekiq_rx::make(
           input_topology,
           port1_handle,
           port2_handle,
+          sample_rate,
+          bandwidth,
+          frequency,
+          gain_mode,
+          gain_index,
+          timestamp_tags,
+          trigger_src,
+          pps_source,
+          cal_mode,
+          cal_type);
+}
+
+sidekiq_rx::sptr sidekiq_rx::make(
+        int input_card,
+        int input_topology,
+        const std::string& port1_handle,
+        const std::string& port2_handle,
+        double sample_rate,
+        double bandwidth,
+        double frequency,
+        uint8_t gain_mode,
+        int gain_index,
+        int timestamp_tags,
+        int trigger_src,
+        int pps_source,
+        int cal_mode,
+        int cal_type)
+{
+  return sidekiq_rx::make(
+          input_card,
+          input_topology,
+          static_cast<int>(parse_rx_handle(port1_handle)),
+          static_cast<int>(parse_rx_handle(port2_handle, true)),
           sample_rate,
           bandwidth,
           frequency,

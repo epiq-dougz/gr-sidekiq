@@ -10,6 +10,7 @@
 #include <boost/foreach.hpp>
 #include <pthread.h>
 
+#include "sidekiq_handle_utils.h"
 #include "sidekiq_tx_impl.h"
 
 
@@ -91,6 +92,31 @@ sidekiq_tx::sptr sidekiq_tx::make(int card,
                                   threads,
                                   buffer_size,
                                   cal_mode);
+}
+
+sidekiq_tx::sptr sidekiq_tx::make(int card,
+                                  int topology,
+                                  const std::string& handle,
+                                  double sample_rate,
+                                  double bandwidth,
+                                  double frequency,
+                                  double attenuation,
+                                  std::string burst_tag,
+                                  int threads,
+                                  int buffer_size,
+                                  int cal_mode)
+{
+    return sidekiq_tx::make(card,
+                            topology,
+                            static_cast<int>(parse_tx_handle(handle)),
+                            sample_rate,
+                            bandwidth,
+                            frequency,
+                            attenuation,
+                            burst_tag,
+                            threads,
+                            buffer_size,
+                            cal_mode);
 }
 
 
