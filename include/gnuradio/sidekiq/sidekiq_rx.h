@@ -24,9 +24,41 @@ public:
 
   static sptr make(
           int input_card,
+          int port1_handle,
+          int port2_handle,
+          double sample_rate,
+          double bandwidth,
+          double frequency,
+          uint8_t gain_mode,
+          int gain_index,
+          int timestamp_tags,
+          int trigger_src,
+          int pps_source,
+          int cal_mode,
+          int cal_type
+          );
+
+  static sptr make(
+          int input_card,
           int input_topology,
           int port1_handle,
           int port2_handle,
+          double sample_rate,
+          double bandwidth,
+          double frequency,
+          uint8_t gain_mode,
+          int gain_index,
+          int timestamp_tags,
+          int trigger_src,
+          int pps_source,
+          int cal_mode,
+          int cal_type
+          );
+
+  static sptr make(
+          int input_card,
+          const std::string& port1_handle,
+          const std::string& port2_handle,
           double sample_rate,
           double bandwidth,
           double frequency,

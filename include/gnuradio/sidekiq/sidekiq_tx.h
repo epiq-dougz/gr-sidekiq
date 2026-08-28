@@ -25,8 +25,32 @@ public:
 
     static sptr make(
                         int card,
+                        int handle,
+                        double sample_rate,
+                        double bandwidth,
+                        double frequency,
+                        double attenuation,
+                        std::string burst_tag,
+                        int threads,
+                        int buffer_size,
+                        int cal_mode);
+
+    static sptr make(
+                        int card,
                         int topology,
                         int handle,
+                        double sample_rate,
+                        double bandwidth,
+                        double frequency,
+                        double attenuation,
+                        std::string burst_tag,
+                        int threads,
+                        int buffer_size,
+                        int cal_mode);
+
+    static sptr make(
+                        int card,
+                        const std::string& handle,
                         double sample_rate,
                         double bandwidth,
                         double frequency,

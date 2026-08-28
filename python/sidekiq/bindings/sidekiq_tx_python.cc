@@ -14,7 +14,7 @@
 /* BINDTOOL_GEN_AUTOMATIC(0)                                                       */
 /* BINDTOOL_USE_PYGCCXML(0)                                                        */
 /* BINDTOOL_HEADER_FILE(sidekiq_tx.h)                                        */
-/* BINDTOOL_HEADER_FILE_HASH(3465f61e53efef33e74ddd026bc4291f)                     */
+/* BINDTOOL_HEADER_FILE_HASH(c49d736745adb71b35fb26fcaea01a87)                     */
 /***********************************************************************************/
 
 #include <pybind11/complex.h>
@@ -38,6 +38,28 @@ void bind_sidekiq_tx(py::module& m)
 
         .def(py::init(py::overload_cast<int,
                                         int,
+                                        double,
+                                        double,
+                                        double,
+                                        double,
+                                        std::string,
+                                        int,
+                                        int,
+                                        int>(&sidekiq_tx::make)),
+           py::arg("card"),
+           py::arg("handle"),
+           py::arg("sample_rate"),
+           py::arg("bandwidth"),
+           py::arg("frequency"),
+           py::arg("attenuation"),
+           py::arg("burst_tag"),
+           py::arg("threads"),
+           py::arg("buffer_size"),
+           py::arg("cal_mode"),
+           D(sidekiq_tx,make)
+        )
+        .def(py::init(py::overload_cast<int,
+                                        int,
                                         int,
                                         double,
                                         double,
@@ -59,6 +81,27 @@ void bind_sidekiq_tx(py::module& m)
            py::arg("buffer_size"),
            py::arg("cal_mode"),
            D(sidekiq_tx,make)
+        )
+        .def(py::init(py::overload_cast<int,
+                                        const std::string&,
+                                        double,
+                                        double,
+                                        double,
+                                        double,
+                                        std::string,
+                                        int,
+                                        int,
+                                        int>(&sidekiq_tx::make)),
+           py::arg("card"),
+           py::arg("handle"),
+           py::arg("sample_rate"),
+           py::arg("bandwidth"),
+           py::arg("frequency"),
+           py::arg("attenuation"),
+           py::arg("burst_tag"),
+           py::arg("threads"),
+           py::arg("buffer_size"),
+           py::arg("cal_mode")
         )
         .def(py::init(py::overload_cast<int,
                                         int,
@@ -135,8 +178,6 @@ void bind_sidekiq_tx(py::module& m)
 
 
 }
-
-
 
 
 

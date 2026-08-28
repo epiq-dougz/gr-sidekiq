@@ -26,6 +26,38 @@ namespace sidekiq {
 using output_type = float;
 sidekiq_rx::sptr sidekiq_rx::make(
         int input_card,
+        int port1_handle,
+        int port2_handle,
+        double sample_rate,
+        double bandwidth,
+        double frequency,
+        uint8_t gain_mode,
+        int gain_index,
+        int timestamp_tags,
+        int trigger_src,
+        int pps_source,
+        int cal_mode,
+        int cal_type)
+{
+  return sidekiq_rx::make(
+          input_card,
+          0,            /* default new topology field to 0 if not specified */
+          port1_handle,
+          port2_handle,
+          sample_rate,
+          bandwidth,
+          frequency,
+          gain_mode,
+          gain_index,
+          timestamp_tags,
+          trigger_src,
+          pps_source,
+          cal_mode,
+          cal_type);
+}
+
+sidekiq_rx::sptr sidekiq_rx::make(
+        int input_card,
         int input_topology,
         int port1_handle,
         int port2_handle,
@@ -43,6 +75,38 @@ sidekiq_rx::sptr sidekiq_rx::make(
   return gnuradio::make_block_sptr<sidekiq_rx_impl>(
           input_card,
           input_topology,
+          port1_handle,
+          port2_handle,
+          sample_rate,
+          bandwidth,
+          frequency,
+          gain_mode,
+          gain_index,
+          timestamp_tags,
+          trigger_src,
+          pps_source,
+          cal_mode,
+          cal_type);
+}
+
+sidekiq_rx::sptr sidekiq_rx::make(
+        int input_card,
+        const std::string& port1_handle,
+        const std::string& port2_handle,
+        double sample_rate,
+        double bandwidth,
+        double frequency,
+        uint8_t gain_mode,
+        int gain_index,
+        int timestamp_tags,
+        int trigger_src,
+        int pps_source,
+        int cal_mode,
+        int cal_type)
+{
+  return sidekiq_rx::make(
+          input_card,
+          0,             /* default new topology field to 0 if not specified */
           port1_handle,
           port2_handle,
           sample_rate,
@@ -501,9 +565,10 @@ bool sidekiq_rx_impl::stop()
  */
 void sidekiq_rx_impl::set_rx_sample_rate(double value) 
 {
-    double fpga_rate;
-    uint32_t actual_rate, actual_bw, fpga_bw;
+    double actual_rate;
+    uint32_t requested_rate, requested_bw, actual_bw;
     auto new_rate = static_cast<uint32_t>(value);
+    uint32_t new_bw = 0;
     skiq_param_t params;
     int param_idx = -1;
     int status = 0;
@@ -538,8 +603,8 @@ void sidekiq_rx_impl::set_rx_sample_rate(double value)
     }
 
     status = skiq_read_rx_sample_rate_and_bandwidth(card, hdl1,
-		                                    &actual_rate, &fpga_rate,
-						    &actual_bw, &fpga_bw);
+		                                    &requested_rate, &actual_rate,
+						    &requested_bw, &actual_bw);
     if (status != 0)
     {
         d_logger->error( "Error: could not read sr/bw on hdl1, status {}, {}",
@@ -547,7 +612,9 @@ void sidekiq_rx_impl::set_rx_sample_rate(double value)
         throw std::runtime_error("Failure: set samplerate");
     }
 
-    status = skiq_write_rx_sample_rate_and_bandwidth(card, hdl1, new_rate, actual_bw);
+    new_bw = std::min(actual_bw, new_rate);
+
+    status = skiq_write_rx_sample_rate_and_bandwidth(card, hdl1, new_rate, new_bw);
     if (status != 0)
     {
         d_logger->error( "Error: could not set sample_rate on hdl1, status {}, {}",
@@ -557,7 +624,7 @@ void sidekiq_rx_impl::set_rx_sample_rate(double value)
 
     if (dual_port)
     {
-        status = skiq_write_rx_sample_rate_and_bandwidth(card, hdl2, new_rate, actual_bw);
+        status = skiq_write_rx_sample_rate_and_bandwidth(card, hdl2, new_rate, new_bw);
         if (status != 0)
         {
             d_logger->error( "Error: could not set sample_rate on hdl2, status {}, {}",
@@ -566,8 +633,8 @@ void sidekiq_rx_impl::set_rx_sample_rate(double value)
         }
     }
     status = skiq_read_rx_sample_rate_and_bandwidth(card, hdl1,
-		                                    &actual_rate, &fpga_rate,
-						    &actual_bw, &fpga_bw);
+		                                    &requested_rate, &actual_rate,
+						    &requested_bw, &actual_bw);
     if (status != 0)
     {
         d_logger->error( "Error: could not read sr/bw on hdl1, status {}, {}",
@@ -584,7 +651,7 @@ void sidekiq_rx_impl::set_rx_sample_rate(double value)
         d_logger->info("Warning: Requested sample rate {} but actually set to {}", new_rate, actual_rate);
     }
 
-    this->sample_rate = actual_rate;
+    this->sample_rate = static_cast<uint32_t>(actual_rate);
     this->bandwidth = actual_bw;
 }
   
@@ -597,16 +664,16 @@ void sidekiq_rx_impl::set_rx_sample_rate(double value)
 void sidekiq_rx_impl::set_rx_bandwidth(double value) 
 {
     int status = 0;
-    double fpga_rate;
-    uint32_t actual_rate, actual_bw, fpga_bw;
+    double actual_rate;
+    uint32_t requested_rate, requested_bw, actual_bw;
     auto new_bw = static_cast<uint32_t>(value);
 
     d_logger->debug("in set_rx_bandwidth");
 
 
     status = skiq_read_rx_sample_rate_and_bandwidth(card, hdl1,
-		                                    &actual_rate, &fpga_rate,
-						    &actual_bw, &fpga_bw);
+		                                    &requested_rate, &actual_rate,
+						    &requested_bw, &actual_bw);
     if (status != 0)
     {
         d_logger->error( "Error: could not read sr/bw on hdl1, status {}, {}",
@@ -636,8 +703,8 @@ void sidekiq_rx_impl::set_rx_bandwidth(double value)
     }
 
     status = skiq_read_rx_sample_rate_and_bandwidth(card, hdl1,
-		                                    &actual_rate, &fpga_rate,
-						    &actual_bw, &fpga_bw);
+		                                    &requested_rate, &actual_rate,
+						    &requested_bw, &actual_bw);
     if (status != 0)
     {
         d_logger->error( "Error: could not read sr/bw on hdl1, status {}, {}",
@@ -653,7 +720,7 @@ void sidekiq_rx_impl::set_rx_bandwidth(double value)
         d_logger->info("Warning: Requested bandwidth {} but actually set to {}", new_bw, actual_bw);
     }
 
-    this->sample_rate = actual_rate;
+    this->sample_rate = static_cast<uint32_t>(actual_rate);
     this->bandwidth = actual_bw;
 }
 

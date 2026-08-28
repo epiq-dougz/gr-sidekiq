@@ -68,6 +68,30 @@ using input_type = float;
 
 /* This is the top level class instantiated by gnuradio */
 sidekiq_tx::sptr sidekiq_tx::make(int card,
+                                  int handle,
+                                  double sample_rate,
+                                  double bandwidth,
+                                  double frequency,
+                                  double attenuation,
+                                  std::string burst_tag,
+                                  int threads,
+                                  int buffer_size,
+                                  int cal_mode)
+{
+    return sidekiq_tx::make(card,
+                            0,
+                            handle,
+                            sample_rate,
+                            bandwidth,
+                            frequency,
+                            attenuation,
+                            burst_tag,
+                            threads,
+                            buffer_size,
+                            cal_mode);
+}
+
+sidekiq_tx::sptr sidekiq_tx::make(int card,
                                   int topology,
                                   int handle,
                                   double sample_rate,
@@ -92,6 +116,30 @@ sidekiq_tx::sptr sidekiq_tx::make(int card,
                                   threads,
                                   buffer_size,
                                   cal_mode);
+}
+
+sidekiq_tx::sptr sidekiq_tx::make(int card,
+                                  const std::string& handle,
+                                  double sample_rate,
+                                  double bandwidth,
+                                  double frequency,
+                                  double attenuation,
+                                  std::string burst_tag,
+                                  int threads,
+                                  int buffer_size,
+                                  int cal_mode)
+{
+    return sidekiq_tx::make(card,
+                            0,
+                            handle,
+                            sample_rate,
+                            bandwidth,
+                            frequency,
+                            attenuation,
+                            burst_tag,
+                            threads,
+                            buffer_size,
+                            cal_mode);
 }
 
 sidekiq_tx::sptr sidekiq_tx::make(int card,
@@ -501,9 +549,10 @@ bool sidekiq_tx_impl::stop()
  */
 void sidekiq_tx_impl::set_tx_sample_rate(double value) 
 {
-    double current_rate;
-    uint32_t configured_rate, configured_bw, current_bw;
+    double actual_rate;
+    uint32_t requested_rate, requested_bw, actual_bw;
     auto new_rate = static_cast<uint32_t>(value);
+    uint32_t new_bw = 0;
     skiq_param_t params;
     int param_idx = -1;
     int status = 0;
@@ -537,8 +586,8 @@ void sidekiq_tx_impl::set_tx_sample_rate(double value)
     }
 
     status = skiq_read_tx_sample_rate_and_bandwidth(card, hdl,
-		                                    &configured_rate, &current_rate,
-						    &configured_bw, &current_bw);
+		                                    &requested_rate, &actual_rate,
+						    &requested_bw, &actual_bw);
     if (status != 0)
     {
         d_logger->error( "Error: could not read sr/bw on hdl, status {}, {}",
@@ -546,7 +595,9 @@ void sidekiq_tx_impl::set_tx_sample_rate(double value)
         throw std::runtime_error("Failure: set samplerate");
     }
 
-    status = skiq_write_tx_sample_rate_and_bandwidth(card, hdl, new_rate, current_bw); 
+    new_bw = std::min(actual_bw, new_rate);
+
+    status = skiq_write_tx_sample_rate_and_bandwidth(card, hdl, new_rate, new_bw);
     if (status != 0) 
     {
         d_logger->error( "Error: could not set sample_rate, status {}, {}", 
@@ -555,8 +606,8 @@ void sidekiq_tx_impl::set_tx_sample_rate(double value)
     }
 
     status = skiq_read_tx_sample_rate_and_bandwidth(card, hdl,
-		                                    &configured_rate, &current_rate,
-						    &configured_bw, &current_bw);
+		                                    &requested_rate, &actual_rate,
+						    &requested_bw, &actual_bw);
     if (status != 0)
     {
         d_logger->error( "Error: could not read sr/bw on hdl, status {}, {}",
@@ -564,8 +615,8 @@ void sidekiq_tx_impl::set_tx_sample_rate(double value)
         throw std::runtime_error("Failure: set samplerate");
     }
 
-    this->sample_rate = current_rate;
-    this->bandwidth = current_bw;
+    this->sample_rate = static_cast<uint32_t>(actual_rate);
+    this->bandwidth = actual_bw;
 }
   
 /* set the bandwidth
@@ -574,15 +625,15 @@ void sidekiq_tx_impl::set_tx_sample_rate(double value)
 void sidekiq_tx_impl::set_tx_bandwidth(double value) 
 {
     int status = 0;
-    double current_rate;
-    uint32_t configured_rate, configured_bw, current_bw;
+    double actual_rate;
+    uint32_t requested_rate, requested_bw, actual_bw;
     auto new_bw = static_cast<uint32_t>(value);
 
     d_logger->debug("in set_tx_bandwidth() ");
 
     status = skiq_read_tx_sample_rate_and_bandwidth(card, hdl,
-		                                    &configured_rate, &current_rate,
-						    &configured_bw, &current_bw);
+		                                    &requested_rate, &actual_rate,
+						    &requested_bw, &actual_bw);
     if (status != 0)
     {
         d_logger->error( "Error: could not read sr/bw on hdl, status {}, {}",
@@ -590,7 +641,7 @@ void sidekiq_tx_impl::set_tx_bandwidth(double value)
         throw std::runtime_error("Failure: set samplerate");
     }
 
-    status = skiq_write_tx_sample_rate_and_bandwidth(card, hdl, static_cast<uint32_t>(current_rate), new_bw);
+    status = skiq_write_tx_sample_rate_and_bandwidth(card, hdl, static_cast<uint32_t>(actual_rate), new_bw);
     if (status != 0)
     {
         d_logger->error("Error: could not set bandwidth {} on hdl, status {}, {}",
@@ -600,18 +651,25 @@ void sidekiq_tx_impl::set_tx_bandwidth(double value)
     }
 
     status = skiq_read_tx_sample_rate_and_bandwidth(card, hdl,
-		                                    &configured_rate, &current_rate,
-						    &configured_bw, &current_bw);
+		                                    &requested_rate, &actual_rate,
+						    &requested_bw, &actual_bw);
     if (status != 0)
     {
         d_logger->error( "Error: could not read sr/bw on hdl, status {}, {}",
                 status, strerror(abs(status)) );
         throw std::runtime_error("Failure: set samplerate");
     }
-    d_logger->info("Info: bandwidth set to {}", new_bw);
+    if (new_bw == actual_bw)
+    {
+        d_logger->info("Info: bandwidth set to {}", actual_bw);
+    }
+    else
+    {
+        d_logger->info("Warning: Requested bandwidth {} but actually set to {}", new_bw, actual_bw);
+    }
 
-    this->sample_rate = static_cast<uint32_t>(current_rate);
-    this->bandwidth = current_bw;
+    this->sample_rate = static_cast<uint32_t>(actual_rate);
+    this->bandwidth = actual_bw;
 }
 
 /* set the LO frequency
